@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js" integrity="sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/btemp.css') }}">
+  <link rel="stylesheet" href="../static/css/btemp.css">
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCd_tfX7EDwloXXITmwYRmlRZRcp_VAqGw&"></script>
+</head>
+
+<body>
+  <header>
+    <section>
+      <nav class="navbar navbar-expand-lg custom-navbar">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="{{url_for('index')}}">Agrofly</a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+              <li class="nav-item">
+                <a class="nav-link" id="navit" aria-current="page" href="{{url_for('index')}}">Home</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" id="navit" href="#aboutUs">About Us</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" id="navit" href="#contactUs">Contact Us</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+    </section>
+
+    <div class="button-container">
+      <div class="offcanvas offcanvas-start" data-bs-scroll="true" tabindex="-1" id="offcanvasWithBothOptions"
+        aria-labelledby="offcanvasWithBothOptionsLabel">
+        <div class="offcanvas-header">
+          <h5 class="offcanvas-title" id="offcanvasWithBothOptionsLabel"><em>Enter values</em></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+          <form onsubmit="return false;">
+            <div class="mb-3">
+              <label for="altitude" class="form-label">Altitude</label>
+              <input type="text" class="form-control" id="altitude" placeholder="Enter altitude">
+            </div>
+            <div class="mb-3">
+              <label for="pesticideQuantity" class="form-label">Quantity of pesticide (in litre)</label>
+              <input type="text" class="form-control" id="pesticideQuantity" placeholder="Enter quantity">
+            </div>
+            <button type="submit" id="grid"class="btn btn-primary">Start Mission</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </header>
+
+    <div id="map" style="height:100%;width:100%;"></div>
+
+    <button class = "design button" id="get-live-location">Get Live Location</button>
+    <button class = "design button2" id="hold">Hold</button>
+    <button class = "design button3" id="pitch">Pitch Back</button>
+    <button class = "design button4" id="rtl">Return To Launch</button>
+    <button class="design button5" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasWithBothOptions" aria-controls="offcanvasWithBothOptions">Submit</button>
+
+
+    <script>
+    document.getElementById('hold').addEventListener('click',function(){
+        fetch('/stop',{
+          method : 'POST',
+          headers : {'Content-Type':'application/json'},
+          body: JSON.stringify({'val':1})
+        });
+      });
+      document.getElementById('pitch').addEventListener('click',function(){
+        fetch('/pitch',{
+          method : 'POST',
+          headers : {'Content-Type':'application/json'},
+          body: JSON.stringify({'val':1})
+        });
+      });
+      document.getElementById('rtl').addEventListener('click',function(){
+        fetch('/rtl',{
+          method : 'POST',
+          headers : {'Content-Type':'application/json'},
+          body: JSON.stringify({'val':1})
+        });
+      });
+      document.getElementById('sprink').addEventListener('click',function(){
+        fetch('/sprink',{
+          method : 'POST',
+          headers : {'Content-Type':'application/json'},
+          body: JSON.stringify({'val':1})
+        });
+      });
+    </script>
+
+
+    <script>
+// This example adds a winding path in the bounds of a rectangle containing user's polyline
+// the key function is findWindingPath(10, 20, polybounds);
+// intersections with a rectangle are found using simple geometry
+
+var map;
+var poly;
+var windingPoly;
+var marker;
+var flightPath =[];
+var tempLoc=0;
+var point = []
+var paths =[];
+//var userLocation = {lat:17.4943,lng:78.4945};
+var userLocation = {lat:0.0,lng:0.0};
+      function fetchLiveLocation() {
+        console.log("no flask")
+        fetch('/get_live_location')
+            .then(response => response.json())
+            .then(data => {
+                userLocation = { lat: data.lat, lng: data.lng };
+                marker = new google.maps.Marker({
+                  position: userLocation,
+                  map: map  
+                });
+                flightPath.push(userLocation);
+                map.panTo(userLocation);
+                
+            })
+            .catch(error => {
+                console.error('Error fetching live location:', error);
+            });
+            /*
+            marker = new google.maps.Marker({
+                position: userLocation,
+                map: map  
+              });  */
+    }
+
+    document.getElementById('get-live-location').addEventListener('click', function () {
+        fetchLiveLocation();
+    });
+    function init(){
+        var initialLocation = { lat: 17.4943, lng: 78.4945 };
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: initialLocation,
+            zoom: 8
+        });
+        map.addListener('click', function(event) {
+            point.push(event.latLng);
+            marker = new google.maps.Marker({
+            position: event.latLng,
+            map: map
+        })
+    
+           
+
+
+    })
+}
+
+
+function surveyGrid(point){
+    var temp=[];
+    for(let i=0;i<point.length;i++){
+        var x = point[i].lat();
+        console.log(x);
+        temp.push(new google.maps.LatLng(point[i].lat(),point[i].lng()));
+    }
+    paths.push(temp);
+    initialize();
+    moveMarker();
+}
+document.getElementById('grid').addEventListener('click', function () {
+    surveyGrid(point)});
+var drawEdgesPoly = function () {
+  // shape is the original, parent polygon
+
+  var shape = poly;
+  // set padding constant to 1 (i.e. 1m distance all around) 
+  padding = 50;
+
+  var vertices = shape.getPath();
+  var polybounds = new google.maps.LatLngBounds();
+  for (var i = 0; i < vertices.getLength(); i++) {
+      polybounds.extend(vertices.getAt(i));
+  }
+  fetch('/pestval', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+      })
+  
+  findWindingPath(10, 20, polybounds);
+};
+
+function moveMarker(){
+  flightPath= windingPoly.getPath().getArray();
+  console.log(flightPath);
+  var data=[];
+   
+    setInterval(function()
+    { 
+      if (tempLoc>=0 && tempLoc < flightPath.length){
+        
+      var latlng ={ lat:flightPath[tempLoc].lat(),lng:flightPath[tempLoc].lng()}
+      console.log("executed");
+      marker.setPosition(latlng);
+      data.push(latlng)
+      tempLoc++; 
+      if(tempLoc==flightPath.length){
+        console.log(data);
+        datatoflask(data);
+      }
+      }
+
+    }, 1000,tempLoc);
+
+}
+function datatoflask(pth){
+    var url='/'
+    fetch(url,{
+        method:'POST',
+        headers:{
+            'Content-Type':'application/json',
+        },
+        body: JSON.stringify(pth)
+    })
+}
+
+function initialize() {
+
+    poly = new google.maps.Polygon({
+        paths: paths,
+        strokeWeight: 3,
+        fillColor: '#55FF55',
+        fillOpacity: 0.5,
+        editable: true
+    });
+
+    poly.setMap(map);
+    
+    windingPoly = new google.maps.Polyline({
+      strokeColor: '#FF0000',
+      strokeOpacity: 1.0,
+      strokeWeight: 3,
+      map: map,
+    });
+    
+    drawEdgesPoly();
+
+    google.maps.event.addListener(poly.getPath(), 'insert_at', drawEdgesPoly);
+    google.maps.event.addListener(poly.getPath(), 'remove_at', drawEdgesPoly);
+    google.maps.event.addListener(poly.getPath(), 'set_at', drawEdgesPoly);
+    
+    if(!google.maps.Polygon.prototype.getBounds)
+      google.maps.Polygon.prototype.getBounds = function() {
+          var bounds = new google.maps.LatLngBounds();
+          var paths = this.getPaths();    
+          for (var i = 0; i < paths.getLength(); i++) {
+              var path = paths.getAt(i);
+              for (var j = 0; j < path.getLength(); j++) {
+                  bounds.extend(path.getAt(j));
+              }
+          }
+          return bounds;
+      }
+}
+
+
+
+/**
+* first assume that every polyline is small and we can use plane geometry, not geodesic
+* so we can take length in degrees since it is proportional to length in meters.
+* let angle be 20-70 degrees for simplicity
+* angle - angle of a winding path to a horizontal line
+* windingsCount - count of winding lines
+* polybounds - LatLngBounds of a rectangle over a polyline
+*/
+var findWindingPath = function(angle, windingsCount, polybounds){
+    // first find all corners
+    var ne = polybounds.getNorthEast();
+    var sw = polybounds.getSouthWest();
+    var nw = new google.maps.LatLng({lat: ne.lat(), lng: sw.lng()}); 
+    var se = new google.maps.LatLng({lat: sw.lat(), lng: ne.lng()}); 
+    
+    // sizes
+    var width = ne.lng() - nw.lng(); // in degrees
+    var height = ne.lat() - se.lat(); // in degrees
+    
+    // angle in radians
+    var angleRadians = angle * Math.PI / 180;
+    console.log('nw=' + nw.lat() +',' + nw.lng() + ' w=' + width);
+    console.log('se=' + se.lat() +',' + se.lng() + ' h=' + height);
+    
+    var windingPath = [];
+    
+    // maximal down from the NW corner
+    var maxDown = (height + width * Math.tan(angleRadians)); // thats due to geometry
+    var distanceBetweenWindings = maxDown / windingsCount;
+    
+    // get vertical distance between winding lines, it depends on the angle
+    var downDelta = distanceBetweenWindings / Math.cos(angleRadians); // thats due to geometry
+    
+    var order = true;
+    
+    // move down from SW corner and add two intersection points
+    for(var down = downDelta; down <= maxDown; down += downDelta) {
+        // if down is small, second intersection is at the top border of the rectangle, else - on the right border
+        if(down < width * Math.tan(angleRadians)) {
+            secondPoint = new google.maps.LatLng({lat: nw.lat(), lng: nw.lng() + down / Math.tan(angleRadians)});
+        } else {
+            secondPoint = new google.maps.LatLng({lat: nw.lat() - down + width * Math.tan(angleRadians), lng: se.lng()});
+        }
+        
+        // if down is less than height, first intersection is at the left border, else - on the bottom of it
+        if(down < height) {
+            firstPoint = new google.maps.LatLng({lat: nw.lat() - down, lng: nw.lng()});
+        } else {
+            firstPoint = new google.maps.LatLng({lat: sw.lat(), lng: sw.lng() + (down - height) / Math.tan(angleRadians) });
+        }
+        
+        
+        // find if a line intersects the user's polyline
+        var collisions = getLinePolylineCollisions(firstPoint, secondPoint, poly);
+        console.log('for down=' + down, collisions)
+        if(collisions !== false) {
+          // add two points to a winding path
+
+          // change its order to get to another winding line along the rectangle border
+          if(order) {
+            // drawing connecting segment
+            windingPath.push(collisions[1].lng() > collisions[0].lng() ? collisions[0] : collisions[1]);
+            // drawing long winding segment
+            windingPath.push(collisions[1].lng() > collisions[0].lng() ? collisions[1] : collisions[0]);
+          } else {
+            // add two points to a winding path
+
+            // drawing connecting segment
+            windingPath.push(collisions[1].lng() > collisions[0].lng() ? collisions[1] : collisions[0]);
+            // drawing long winding segment
+            windingPath.push(collisions[1].lng() > collisions[0].lng() ? collisions[0] : collisions[1]);
+          }
+
+          order = !order;
+        }
+    }
+    windingPoly.setPath(windingPath);
+
+}
+
+var getLinePolylineCollisions = function(firstPoint, secondPoint, shape) {
+  var collisions = [];
+  var collision;
+  var vertices = shape.getPath();
+  for (var i = 0; i < vertices.getLength(); i++) {
+    var one = vertices.getAt(i);
+    var two = vertices.getAt((i === (vertices.getLength() - 1)) ? 0 : i+1);
+    
+    collision = getLineLineCollision(firstPoint, secondPoint, one, two);
+    if(collision !== false) {
+       collisions.push(collision);
+    }
+   }
+   return collisions.length > 1 ? collisions : false;
+}
+
+// got from http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+
+var getLineLineCollision = function(p0, p1, p2, p3) {
+    var s1, s2;
+    s1 = {x: p1.lat() - p0.lat(), y: p1.lng() - p0.lng()};
+    s2 = {x: p3.lat() - p2.lat(), y: p3.lng() - p2.lng()};
+
+    var s10_x = p1.lat() - p0.lat();
+    var s10_y = p1.lng() - p0.lng();
+    var s32_x = p3.lat() - p2.lat();
+    var s32_y = p3.lng() - p2.lng();
+
+    var denom = s10_x * s32_y - s32_x * s10_y;
+
+    if(denom == 0) {
+        return false;
+    }
+
+    var denom_positive = denom > 0;
+
+    var s02_x = p0.lat() - p2.lat();
+    var s02_y = p0.lng() - p2.lng();
+
+    var s_numer = s10_x * s02_y - s10_y * s02_x;
+
+    if((s_numer < 0) == denom_positive) {
+        return false;
+    }
+
+    var t_numer = s32_x * s02_y - s32_y * s02_x;
+
+    if((t_numer < 0) == denom_positive) {
+        return false;
+    }
+
+    if((s_numer > denom) == denom_positive || (t_numer > denom) == denom_positive) {
+        return false;
+    }
+
+    var t = t_numer / denom;
+
+    var intersection = new google.maps.LatLng({lat: p0.lat() + (t * s10_x), lng: p0.lng() + (t * s10_y)});
+    
+    return intersection;
+}
+
+google.maps.event.addDomListener(window, 'load', init);
+    </script>
+  </body>
+</html>
